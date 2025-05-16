@@ -11,6 +11,12 @@ from typing import List, Tuple, Optional
 
 import email
 from email.policy import default
+import streamlit as st
+
+EMAIL_USER = st.secrets["EMAIL_USER"]
+EMAIL_PASS = st.secrets["EMAIL_PASS"]
+IMAP_HOST = st.secrets["IMAP_HOST"]
+IMAP_PORT = st.secrets["IMAP_PORT"]
 
 import config
 
