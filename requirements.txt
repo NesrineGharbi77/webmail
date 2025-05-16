@@ -13,6 +13,7 @@ apscheduler>=3.11
 pymongo>=4.12
 chardet>=4.0
 backoff>=2.2
+pytesseract>=0.3.10
 
 # --- interface et débogage ---
 streamlit>=1.45                  # ≥ 1.40 gère Pillow ≥ 11
