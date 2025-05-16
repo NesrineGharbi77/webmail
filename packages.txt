@@ -1,0 +1,3 @@
+tesseract-ocr
+libmagic1
+poppler-utils            # requis par pdf2image
