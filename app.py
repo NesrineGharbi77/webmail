@@ -114,12 +114,12 @@ def _show_attachment(name:str,data:bytes):
         st.warning("Pièce jointe vide");return
     low=name.lower()
     if low.endswith((".png",".jpg",".jpeg",".gif",".bmp",".webp")):
-        st.image(Image.open(io.BytesIO(data)),use_column_width=True)
+        st.image(Image.open(io.BytesIO(data)),use_container_width=True)
     elif low.endswith(".pdf"):
         from pdf2image import convert_from_bytes
         try:
             st.image(convert_from_bytes(data,first_page=1,last_page=1,dpi=150)[0],
-                     use_column_width=True)
+                     use_container_width=True)
         except Exception as e:
             st.error(f"Aperçu PDF impossible : {e}")
         href=f'data:application/pdf;base64,{base64.b64encode(data).decode()}'
@@ -139,30 +139,59 @@ def human_label(lbl:str)->str:
         "attachments":"Pièces jointes","classification history":"Historique de classification"}
     return mapping.get(lbl.lower(), lbl.replace("_"," ").capitalize())
 
+
+# ───────── Helpers Streamlit ────────────────────────────
+def safe_rerun(scope: str = "app"):
+    """
+    Relance le script de façon compatible avec toutes les versions de Streamlit.
+
+    • Streamlit ≥ 1.27  → utilise st.rerun()
+    • Versions plus anciennes → bascule sur st.experimental_rerun()
+    """
+    if hasattr(st, "rerun"):
+        # Streamlit récent
+        st.rerun(scope=scope)
+    elif hasattr(st, "experimental_rerun"):
+        # Anciennes versions (< 1.27)
+        st.experimental_rerun()
+    else:
+        # Cas très ancien : avertissement (le script continue sans crash)
+        st.warning(
+            "Votre version de Streamlit est trop ancienne pour supporter le rerun "
+            "automatique. Mettez Streamlit à jour :  pip install -U streamlit"
+        )
+
+# ───────── Widget d’édition des métadonnées ───────────────────────
+# ───────── Widget d’édition des métadonnées ───────────────────────
 # ───────── Widget d’édition des métadonnées ───────────────────────
 def display_editable_metadata(uid: str, meta: dict):
     """
     Affiche les métadonnées (lecture/édition) + remarques.
-    Les modifications sont enregistrées dans user_preclass_json.
+    Les modifications sont enregistrées puis l’app se ré-exécute pour rafraîchir.
     """
-    # ----- JSON affiché/édité : priorité à la version utilisateur -------------
-    data_json   = meta.get("user_preclass_json") or meta.get("preclass_json") or {}
-    flat        = flatten(data_json)
-    cleaned     = {k: v for k, v in flat.items() if not _is_empty(v)}
-    remarks_txt = meta.get("remarks", "")
+    # ----- JSON affiché/édité (priorité version utilisateur) ------------------
+    data_json = meta.get("user_preclass_json") or meta.get("preclass_json") or {}
+
+    flat    = flatten(data_json)
+    cleaned = {k: v for k, v in flat.items() if not _is_empty(v)}
+
+    # Toujours une chaîne
+    remarks_txt: str = str(meta.get("remarks") or "")
 
     # ----- Bascule lecture/édition -------------------------------------------
     key_edit = f"edit_mode_{uid}"
     if key_edit not in st.session_state:
         st.session_state[key_edit] = False
 
-    edit_mode = st.checkbox("Modifier les métadonnées",
-                            value=st.session_state[key_edit],
-                            key=f"checkbox_{key_edit}")
+    edit_mode = st.checkbox(
+        "Modifier les métadonnées",
+        value=st.session_state[key_edit],
+        key=f"checkbox_{key_edit}",
+    )
 
     if edit_mode != st.session_state[key_edit]:
         st.session_state[key_edit] = edit_mode
-        st.rerun()
+        safe_rerun()
 
     # ----- MODE ÉDITION -------------------------------------------------------
     if st.session_state[key_edit]:
@@ -180,18 +209,19 @@ def display_editable_metadata(uid: str, meta: dict):
                 else:
                     new_vals[k] = st.text_area(lbl, value=v, height=80, key=f"{uid}_{k}")
 
-            new_remarks = st.text_area("Remarques", value=remarks_txt,
-                                        height=120, key=f"{uid}_remarks")
+            new_remarks = st.text_area(
+                "Remarques", value=remarks_txt, height=120, key=f"{uid}_remarks"
+            )
 
             if st.form_submit_button("Enregistrer"):
                 meta_update = {
                     "user_preclass_json": unflatten(new_vals),
-                    "remarks":            new_remarks,
-                    "status":             meta.get("status", "done")
+                    "remarks": str(new_remarks or ""),
+                    "status": meta.get("status", "done"),
                 }
                 storage.update_meta(uid, meta_update)
-                st.success("Modifications enregistrées.")
-                st.rerun()
+                st.session_state[key_edit] = False  # repasse en mode lecture
+                safe_rerun()
 
     # ----- MODE LECTURE -------------------------------------------------------
     else:
@@ -199,72 +229,81 @@ def display_editable_metadata(uid: str, meta: dict):
         for k, v in cleaned.items():
             lbl = human_label(k)
             val = _display_value(v)
-            val_lines = "<br>".join(val.split("\n")) if isinstance(v, list) and all(isinstance(x, dict) for x in v) else val
-            rows.append(f"<tr><td><strong>{lbl}</strong></td><td><code>{val_lines}</code></td></tr>")
+            val_lines = (
+                "<br>".join(val.split("\n"))
+                if isinstance(v, list) and all(isinstance(x, dict) for x in v)
+                else val
+            )
+            rows.append(
+                f"<tr><td><strong>{lbl}</strong></td>"
+                f"<td><code>{val_lines}</code></td></tr>"
+            )
 
         html_tbl = f"""
         <style>
         .elegant-compact {{
-        border:1px solid #e1e4e8;
-        border-radius:6px;
-        box-shadow:0 1px 2px rgba(0,0,0,0.08);
-        overflow:hidden;
+            border:1px solid #e1e4e8;
+            border-radius:6px;
+            box-shadow:0 1px 2px rgba(0,0,0,0.08);
+            overflow:hidden;
         }}
         .elegant-compact table {{
-        width:100%;
-        border-collapse:collapse;
-        font-family:'Segoe UI','Helvetica','Arial',sans-serif;
-        font-size:12px;
+            width:100%;
+            border-collapse:collapse;
+            font-family:'Segoe UI','Helvetica','Arial',sans-serif;
+            font-size:12px;
         }}
         .elegant-compact thead th {{
-        background-color:#fafbfc;
-        color:#2c3e50;
-        font-weight:600;
-        padding:6px 8px;
-        text-align:left;
+            background-color:#fafbfc;
+            color:#2c3e50;
+            font-weight:600;
+            padding:6px 8px;
+            text-align:left;
         }}
         .elegant-compact th, .elegant-compact td {{
-        padding:6px 8px;
-        border-bottom:1px solid #ececec;
+            padding:6px 8px;
+            border-bottom:1px solid #ececec;
         }}
         .elegant-compact tbody tr:nth-child(even) {{
-        background-color:#f4f6f8;
+            background-color:#f4f6f8;
         }}
         .elegant-compact tbody tr:hover {{
-        background-color:#e8edf2;
+            background-color:#e8edf2;
         }}
         .elegant-compact code {{
-        background-color:#f0f2f5;
-        padding:2px 4px;
-        border-radius:3px;
-        word-break:break-word;
-        color:#2c3e50;
-        font-size:11px;
-        }}
-        .attachment-item {{
-        margin-bottom: 6px;
-        line-height: 1.4;
+            background-color:#f0f2f5;
+            padding:2px 4px;
+            border-radius:3px;
+            word-break:break-word;
+            color:#2c3e50;
+            font-size:11px;
         }}
         </style>
         <div class="elegant-compact">
         <table>
-            <thead>
-            <tr><th>Métadonnée</th><th>Valeur</th></tr>
-            </thead>
-            <tbody>
-            {''.join(rows)}
-            </tbody>
+            <thead><tr><th>Métadonnée</th><th>Valeur</th></tr></thead>
+            <tbody>{''.join(rows)}</tbody>
         </table>
         </div>
         """
-        components.html(html_tbl,
-                        height=min(600, 32 + 108 * len(cleaned)),
-                        scrolling=True)
+        components.html(
+            html_tbl,
+            height=min(600, 32 + 108 * len(cleaned)),
+            scrolling=True,
+        )
 
         if remarks_txt.strip():
             st.markdown("#### Remarques")
-            st.text_area(" ", value=remarks_txt, disabled=True,
-                         height=120, label_visibility="collapsed")
+            # 👉 key unique par e-mail pour éviter la persistance
+            st.text_area(
+                " ",
+                value=remarks_txt,
+                disabled=True,
+                height=120,
+                label_visibility="collapsed",
+                key=f"{uid}_remarks_readonly",
+            )
+
 
 
 # ═════════ Récupération des UID “done” ═════════════════════════════
