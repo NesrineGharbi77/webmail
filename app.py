@@ -118,9 +118,15 @@ def _display_value(v: Any) -> str:
         head = (
             "<tr><th>📎&nbsp;Fichier</th>"
             "<th>Type</th>"
+            "<th>Statut</th></tr>"
         )
         body = []
         for rec in records:
+            statut = (
+                "✅ Traité"        if rec.get("processed") else
+                "⏳ En&nbsp;attente" if "processed" in rec else
+                ""
+            )
             body.append(
                 "<tr>"
                 f"<td>{html.escape(str(rec.get('filename','')))}</td>"
