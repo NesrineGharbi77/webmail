@@ -1,0 +1,4 @@
+[theme]
+base = "light"          # force le thème clair
+primaryColor = "#2c3e50"
+font        = "sans serif"
