@@ -59,20 +59,89 @@ def unflatten(flat: dict) -> dict:
         cur[leaf] = val
     return root
 
+import json, html
+from typing import Any, List, Dict
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+def _as_records(v: Any) -> List[Dict[str, Any]] | None:
+    """
+    Tente de convertir *v* en liste de dictionnaires représentant
+    des pièces jointes.  Accepte :
+      • list[dict]                       → renvoyé tel quel
+      • list[list[dict]] (1 seul niveau) → aplati
+      • str contenant JSON (list|dict)   → json.loads puis même logique
+    Retourne None si la conversion échoue.
+    """
+    # 1) Conversion JSON éventuelle
+    if isinstance(v, str):
+        v = v.strip()
+        if v.startswith(("[", "{")):
+            try:
+                v = json.loads(v)
+            except Exception:
+                return None      # JSON invalide
+
+    # 2) Liste *imbriquée* d’un coup
+    if isinstance(v, list):
+        if len(v) == 1 and isinstance(v[0], list):
+            v = v[0]
+        if all(isinstance(x, dict) for x in v):
+            return v
+
+    # 3) Un seul dict seul
+    if isinstance(v, dict):
+        return [v]
+
+    return None
+
+# ------------------------------------------------------------------
+# Affichage générique
+# ------------------------------------------------------------------
 def _display_value(v: Any) -> str:
-    if _is_empty(v): return ""
-    if isinstance(v, list) and all(isinstance(x, dict) for x in v):
-        lines=[]
-        for it in v:
-            seg=[]
-            if fn:=it.get("filename"): seg.append(f"📎 {fn}")
-            if tp:=it.get("type"):     seg.append(f"Type: {tp}")
-            if "processed" in it:      seg.append("✅ Traité" if it["processed"] else "⏳ En attente")
-            lines.append(" | ".join(seg))
-        return "\n".join(lines)
-    if isinstance(v, list): return ", ".join(str(x) for x in v if not _is_empty(x))
-    if isinstance(v, bool): return "Oui" if v else "Non"
+    """Retourne une chaîne ou du HTML prêt pour le tableau Streamlit."""
+    if v is None or (isinstance(v, str) and v.strip() == ""):
+        return ""
+
+    # ----- Pièces jointes → tableau HTML -------
+    records = _as_records(v)
+    if records:
+        head = (
+            "<tr><th>📎&nbsp;Fichier</th>"
+            "<th>Type</th>"
+            "<th>Statut</th></tr>"
+        )
+        body = []
+        for rec in records:
+            statut = (
+                "✅ Traité"      if rec.get("processed") else
+                "⏳ En&nbsp;attente" if "processed" in rec else
+                ""
+            )
+            body.append(
+                "<tr>"
+                f"<td>{html.escape(str(rec.get('filename','')))}</td>"
+                f"<td>{html.escape(str(rec.get('type','')))}</td>"
+                f"<td>{statut}</td>"
+                "</tr>"
+            )
+        return (
+            "<table style='border-collapse:collapse;font-size:12px;'>"
+            "<thead>"+head+"</thead><tbody>"+ "".join(body) +"</tbody></table>"
+        )
+
+    # ----- Listes simples -------
+    if isinstance(v, list):
+        return ", ".join(str(x) for x in v if x not in (None, ""))
+
+    # ----- Booléens -------
+    if isinstance(v, bool):
+        return "Oui" if v else "Non"
+
+    # ----- Chaine brute -------
     return str(v)
+
 
 # ───────── Contenu HTML du mail ───────────────────────────────────
 def _html_from_msg(msg: email.message.EmailMessage) -> str:
