@@ -118,7 +118,6 @@ def _display_value(v: Any) -> str:
         head = (
             "<tr><th>📎&nbsp;Fichier</th>"
             "<th>Type</th>"
-            "<th>Statut</th></tr>"
         )
         body = []
         for rec in records:
