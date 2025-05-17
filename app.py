@@ -62,37 +62,43 @@ def unflatten(flat: dict) -> dict:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+import ast, json
+from typing import Any, List, Dict
+
 def _as_records(v: Any) -> List[Dict[str, Any]] | None:
     """
-    Convertit *v* en liste de dictionnaires représentant les pièces jointes.
-    Accepte :
-      • list[dict]                    → renvoyée telle quelle
-      • list[list[dict]]             → aplatie
-      • str JSON (liste ou dict)     → parsée puis même logique
-      • dict seul                    → encapsulé dans une liste
-    Retourne None si la conversion échoue.
+    Convertit *v* en liste de dicts même si la source est :
+      • str JSON valide
+      • str repr() Python (guillemets simples)
     """
-    # 1) Si chaîne JSON
+
+    # 1) Si chaîne : essaye JSON puis ast.literal_eval
     if isinstance(v, str):
         txt = v.strip()
         if txt.startswith(("{", "[")):
+            # d’abord JSON « propre »
             try:
                 v = json.loads(txt)
             except Exception:
-                return None  # JSON invalide
+                # puis représentation Python
+                try:
+                    v = ast.literal_eval(txt)
+                except Exception:
+                    return None
 
-    # 2) Liste de listes → aplatissement
+    # 2) Liste de listes -> aplatissement
     if isinstance(v, list):
         if len(v) == 1 and isinstance(v[0], list):
             v = v[0]
         if all(isinstance(x, dict) for x in v):
             return v
 
-    # 3) Un seul dict
+    # 3) Dict seul
     if isinstance(v, dict):
         return [v]
 
     return None
+
 
 # ------------------------------------------------------------------
 # Affichage générique
