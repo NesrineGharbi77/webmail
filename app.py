@@ -131,7 +131,6 @@ def _display_value(v: Any) -> str:
                 "<tr>"
                 f"<td>{html.escape(str(rec.get('filename','')))}</td>"
                 f"<td>{html.escape(str(rec.get('type','')))}</td>"
-                f"<td>{statut}</td>"
                 "</tr>"
             )
         return (
