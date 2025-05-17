@@ -36,7 +36,7 @@ try:
 except ImportError:
     _HAS_FTFY = False
 
-import html2text, config
+import html2text
 
 # ────────────────────── Logging & OCR ─────────────────────
 logger = logging.getLogger("extractor")
@@ -44,12 +44,11 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 OCR_LANGS = os.getenv("OCR_LANGS", "fra+eng")
 
 # ────────────────────── Constants ─────────────────────────
-TMP  = Path(config.TMP_DIR)
 TMP.mkdir(parents=True, exist_ok=True)
 
-DESKEW_MAX_SKEW     = getattr(config, "DESKEW_MAX_SKEW", 15)       # °
-DESKEW_MIN_IMPROVE  = getattr(config, "DESKEW_MIN_IMPROVE", 0.05)  # +5 %
-DESKEW_TIMEOUT      = getattr(config, "DESKEW_TIMEOUT", 3)         # s
+DESKEW_MAX_SKEW     = getattr("DESKEW_MAX_SKEW", 15)       # °
+DESKEW_MIN_IMPROVE  = getattr("DESKEW_MIN_IMPROVE", 0.05)  # +5 %
+DESKEW_TIMEOUT      = getattr("DESKEW_TIMEOUT", 3)         # s
 
 # ────────────────────── Utils texte ───────────────────────
 _RX_SPACES = re.compile(r"\s+")
@@ -384,7 +383,6 @@ def att_snippet(
 #                      BODY → TEXT
 # -----------------------------------------------------------------
 def body_to_text(msg: email.message.EmailMessage,
-                 limit: int=config.BODY_LIMIT,
                  prefer: Tuple[str,...]=("plain","html")) -> str:
     def _extract(part, fmt):
         try:
