@@ -58,39 +58,36 @@ def unflatten(flat: dict) -> dict:
             cur = cur.setdefault(h, {})
         cur[leaf] = val
     return root
-
-import json, html
-from typing import Any, List, Dict
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
 def _as_records(v: Any) -> List[Dict[str, Any]] | None:
     """
-    Tente de convertir *v* en liste de dictionnaires représentant
-    des pièces jointes.  Accepte :
-      • list[dict]                       → renvoyé tel quel
-      • list[list[dict]] (1 seul niveau) → aplati
-      • str contenant JSON (list|dict)   → json.loads puis même logique
+    Convertit *v* en liste de dictionnaires représentant les pièces jointes.
+    Accepte :
+      • list[dict]                    → renvoyée telle quelle
+      • list[list[dict]]             → aplatie
+      • str JSON (liste ou dict)     → parsée puis même logique
+      • dict seul                    → encapsulé dans une liste
     Retourne None si la conversion échoue.
     """
-    # 1) Conversion JSON éventuelle
+    # 1) Si chaîne JSON
     if isinstance(v, str):
-        v = v.strip()
-        if v.startswith(("[", "{")):
+        txt = v.strip()
+        if txt.startswith(("{", "[")):
             try:
-                v = json.loads(v)
+                v = json.loads(txt)
             except Exception:
-                return None      # JSON invalide
+                return None  # JSON invalide
 
-    # 2) Liste *imbriquée* d’un coup
+    # 2) Liste de listes → aplatissement
     if isinstance(v, list):
         if len(v) == 1 and isinstance(v[0], list):
             v = v[0]
         if all(isinstance(x, dict) for x in v):
             return v
 
-    # 3) Un seul dict seul
+    # 3) Un seul dict
     if isinstance(v, dict):
         return [v]
 
@@ -100,7 +97,11 @@ def _as_records(v: Any) -> List[Dict[str, Any]] | None:
 # Affichage générique
 # ------------------------------------------------------------------
 def _display_value(v: Any) -> str:
-    """Retourne une chaîne ou du HTML prêt pour le tableau Streamlit."""
+    """
+    Retourne une chaîne ou du HTML prêt à être injecté dans le tableau
+    Streamlit.  Les listes/dicts de pièces jointes sont rendus en tableau ;
+    les autres types conservent l’ancien comportement.
+    """
     if v is None or (isinstance(v, str) and v.strip() == ""):
         return ""
 
@@ -115,7 +116,7 @@ def _display_value(v: Any) -> str:
         body = []
         for rec in records:
             statut = (
-                "✅ Traité"      if rec.get("processed") else
+                "✅ Traité"        if rec.get("processed") else
                 "⏳ En&nbsp;attente" if "processed" in rec else
                 ""
             )
@@ -139,7 +140,7 @@ def _display_value(v: Any) -> str:
     if isinstance(v, bool):
         return "Oui" if v else "Non"
 
-    # ----- Chaine brute -------
+    # ----- Autres types -------
     return str(v)
 
 
@@ -297,16 +298,19 @@ def display_editable_metadata(uid: str, meta: dict):
         rows = []
         for k, v in cleaned.items():
             lbl = human_label(k)
-            val = _display_value(v)
-            val_lines = (
-                "<br>".join(val.split("\n"))
-                if isinstance(v, list) and all(isinstance(x, dict) for x in v)
-                else val
-            )
-            rows.append(
-                f"<tr><td><strong>{lbl}</strong></td>"
-                f"<td><code>{val_lines}</code></td></tr>"
-            )
+            val_html = _display_value(v)
+
+            # Si _display_value a généré un <table>, on ne l’entoure PAS de <code>
+            if isinstance(val_html, str) and val_html.startswith("<table"):
+                rows.append(
+                    f"<tr><td><strong>{lbl}</strong></td><td>{val_html}</td></tr>"
+                )
+            else:
+                val_lines = "<br>".join(str(val_html).split("\n"))
+                rows.append(
+                    f"<tr><td><strong>{lbl}</strong></td>"
+                    f"<td><code>{val_lines}</code></td></tr>"
+                )
 
         html_tbl = f"""
         <style>
