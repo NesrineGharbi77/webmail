@@ -14,7 +14,8 @@ from typing import Any, List, Tuple
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
-
+import json, html
+from typing import Any, List, Dict
 import extractor                    # helpers pièces jointes
 import imap_client                  # fetch_email(uid)
 import preclass_store as storage    # get_meta / update_meta / get_all_meta
