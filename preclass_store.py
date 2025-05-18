@@ -1,6 +1,4 @@
 # preclass_store.py – stockage Supabase
-# Remplace entièrement l’ancienne implémentation SQLite
-
 from __future__ import annotations
 import streamlit as st
 from supabase import create_client, Client
@@ -9,8 +7,9 @@ from datetime import datetime
 import json
 
 # ───────── Connexion Supabase ─────────────────────────────────────
-_SUPABASE_URL: str = st.secrets[supabase]["url"]
-_SUPABASE_KEY: str = st.secrets[supabase]["key"]
+# → Bien noter les guillemets autour de "supabase" !
+_SUPABASE_URL: str = st.secrets["supabase"]["url"]
+_SUPABASE_KEY: str = st.secrets["supabase"]["key"]
 supabase: Client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
 
 TABLE = "email_meta"        # nom de la table Postgres
@@ -73,7 +72,6 @@ def update_meta(uid: str, meta: Dict[str, Any]) -> None:
         "updated_at":         datetime.utcnow().isoformat()
     }
 
-    # UPDATE d’abord ; si aucune ligne modifiée → INSERT
     updated = (
         supabase
         .table(TABLE)
