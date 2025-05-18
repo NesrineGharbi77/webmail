@@ -9,8 +9,8 @@ from datetime import datetime
 import json
 
 # ───────── Connexion Supabase ─────────────────────────────────────
-_SUPABASE_URL: str = st.secrets["supabase"]["url"]
-_SUPABASE_KEY: str = st.secrets["supabase"]["key"]
+_SUPABASE_URL: str = st.secrets["url"]
+_SUPABASE_KEY: str = st.secrets["key"]
 supabase: Client = create_client(_SUPABASE_URL, _SUPABASE_KEY)
 
 TABLE = "email_meta"        # nom de la table Postgres
